@@ -16,6 +16,7 @@
   "dependencies": {
     "esbuild": "^0.25.9",
     "express": "^5.1.0",
+    "ffmpeg-static": "^5.2.0",
     "node-media-server": "^4.0.21"
   },
   "devDependencies": {
