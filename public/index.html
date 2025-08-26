@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Live Streaming Server</title>
+    <style>
+      body {
+        background-color: #f8f9fa;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        display: flex;
+      }
+
+      .container {
+        display: grid;
+        grid-template-columns: 280px 1fr;
+        width: 100%;
+        height: 100vh;
+      }
+
+      /* Sidebar (Stream List) */
+      .stream-container {
+        background: #ffffff;
+        border-right: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .stream-header {
+        padding: 1rem;
+        font-weight: 600;
+        border-bottom: 1px solid #dee2e6;
+        background-color: #f1f3f5;
+      }
+
+      .stream-list {
+        flex: 1;
+        overflow-y: auto;
+      }
+
+      .stream-item {
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-bottom: 1px solid #f1f3f5;
+      }
+      .stream-item:hover {
+        background-color: #f8f9fa;
+      }
+      .stream-item.active {
+        background-color: #007bff;
+        color: #fff;
+      }
+
+      .no-streams {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+      }
+
+      /* Player Section */
+      .player-container {
+        display: flex;
+        flex-direction: column;
+        background: #f8f9fa;
+        padding: 1rem;
+        height: 100%;
+      }
+
+      .player-header {
+        margin-bottom: 1rem;
+        font-weight: 600;
+        font-size: 1.2rem;
+      }
+
+      #videoPlayer {
+        width: 100%;
+        height: 80%;
+        border-radius: 0px;
+        background: #000;
+        outline: none;
+      }
+
+      #noStreamAlert {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #fff3cd;
+        border: 1px solid #ffeeba;
+        border-radius: 6px;
+        color: #856404;
+      }
+
+      /* Scrollbar styling */
+      .stream-list::-webkit-scrollbar {
+        width: 6px;
+      }
+      .stream-list::-webkit-scrollbar-thumb {
+        background: #ced4da;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Sidebar -->
+      <div class="stream-container">
+        <div class="stream-header">📺 Active Streams</div>
+        <div id="streamsList" class="stream-list">
+          <div class="no-streams">Loading streams...</div>
+        </div>
+      </div>
+
+      <!-- Player -->
+      <div class="player-container">
+        <div class="player-header">▶️ Live Player</div>
+        <video id="videoPlayer" controls autoplay></video>
+        <div id="noStreamAlert">
+          ℹ️ No active stream selected. Choose a stream from the list.
+        </div>
+      </div>
+    </div>
+
+    <!-- HLS.js -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.0.0/dist/hls.min.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const videoPlayer = document.getElementById("videoPlayer");
+        const streamsList = document.getElementById("streamsList");
+        const noStreamAlert = document.getElementById("noStreamAlert");
+
+        let hls = null;
+        let currentStream = null;
+
+        loadStreams();
+        setInterval(loadStreams, 10000);
+
+        function loadStreams() {
+          fetch("/api/streams")
+            .then((response) => response.json())
+            .then((streams) => displayStreams(streams))
+            .catch(() => {
+              streamsList.innerHTML = `<div class="no-streams">⚠️ Error loading streams</div>`;
+            });
+        }
+
+        function displayStreams(streams) {
+          if (streams.length === 0) {
+            streamsList.innerHTML = `<div class="no-streams">🚫 No active streams</div>`;
+            return;
+          }
+
+          let html = "";
+          streams.forEach((stream) => {
+            const isActive =
+              currentStream && currentStream.name === stream.name;
+            html += `
+              <div class="stream-item ${isActive ? "active" : ""}" 
+                   data-name="${stream.name}" 
+                   data-url="${stream.url}">
+                ${stream.name} <span style="float:right; color:green;">● LIVE</span>
+              </div>`;
+          });
+          streamsList.innerHTML = html;
+
+          document.querySelectorAll(".stream-item").forEach((item) => {
+            item.addEventListener("click", function () {
+              const name = this.dataset.name;
+              const url = this.dataset.url;
+              playStream(name, url);
+              document
+                .querySelectorAll(".stream-item")
+                .forEach((i) => i.classList.remove("active"));
+              this.classList.add("active");
+            });
+          });
+
+          if (!currentStream && streams.length > 0) {
+            playStream(streams[0].name, streams[0].url);
+            document.querySelector(".stream-item").classList.add("active");
+          }
+        }
+
+        function playStream(name, url) {
+          currentStream = { name, url };
+          noStreamAlert.style.display = "none";
+
+          if (videoPlayer.canPlayType("application/vnd.apple.mpegurl")) {
+            videoPlayer.src = url;
+            videoPlayer.play().catch(console.error);
+          } else if (Hls.isSupported()) {
+            if (hls) hls.destroy();
+            hls = new Hls();
+            hls.loadSource(url);
+            hls.attachMedia(videoPlayer);
+            hls.on(Hls.Events.MANIFEST_PARSED, function () {
+              videoPlayer.play().catch(console.error);
+            });
+          } else {
+            alert("Your browser does not support HLS. Use a modern browser.");
+          }
+        }
+
+        videoPlayer.addEventListener("error", function () {
+          noStreamAlert.style.display = "block";
+          noStreamAlert.innerHTML = "⚠️ Error playing stream. It may have ended.";
+        });
+      });
+    </script>
+  </body>
+</html>
