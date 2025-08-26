@@ -1,6 +1,6 @@
-services:
-  - type: web
-    name: my-backend
-    env: docker
-    plan: free
-    dockerfilePath: ./Dockerfile
+# services:
+#   - type: web
+#     name: my-backend
+#     env: docker
+#     plan: free
+#     dockerfilePath: ./Dockerfile
