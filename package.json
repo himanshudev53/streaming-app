@@ -4,12 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-   "prebuild": "npm install esbuild",
-  "build": "esbuild server.js --bundle --platform=node --outfile=dist/server.js",
-  "start": "node dist/server.js",
-  "dev": "nodemon server.js",
+    "prebuild": "npm install esbuild",
+    "build": "esbuild server.js --bundle --platform=node --outfile=dist/server.js",
+    "start": "node dist/server.js",
     "postinstall": "apt-get update && apt-get install -y ffmpeg"
-}
   },
   "keywords": [],
   "author": "",
@@ -21,6 +19,6 @@
     "node-media-server": "^4.0.21"
   },
   "devDependencies": {
-  "esbuild": "^0.25.9"
-}
+    "esbuild": "^0.25.9"
+  }
 }
