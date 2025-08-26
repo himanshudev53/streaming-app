@@ -1,11 +1,11 @@
-services:
-  - type: web
-    name: streaming-server
-    env: node
-    buildCommand: |
-      apt-get update && apt-get install -y ffmpeg
-      npm install
-    startCommand: npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
+# services:
+#   - type: web
+#     name: streaming-server
+#     env: node
+#     buildCommand: |
+#       apt-get update && apt-get install -y ffmpeg
+#       npm install
+#     startCommand: npm start
+#     envVars:
+#       - key: NODE_ENV
+#         value: production
