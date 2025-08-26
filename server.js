@@ -334,6 +334,71 @@ app.get("/api/streams", (req, res) => {
   }
   res.json(streams);
 });
+app.get("/api/streams", (req, res) => {
+  const streams = [];
+  const liveDir = path.join(mediaRoot, "live");
+
+  if (fs.existsSync(liveDir)) {
+    const streamDirs = fs.readdirSync(liveDir);
+    streamDirs.forEach((stream) => {
+      if (fs.existsSync(path.join(liveDir, stream, "index.m3u8"))) {
+        streams.push({
+          name: stream,
+          url: `/live/${stream}/index.m3u8`,
+          rtmp: `rtmp://localhost:1935/live/${stream}`,
+          embed_url: `${req.protocol}://${req.get("host")}/embed/${stream}`,
+          hls_url: `${req.protocol}://${req.get(
+            "host"
+          )}/live/${stream}/index.m3u8`,
+          iframe_embed: `<iframe src="${req.protocol}://${req.get(
+            "host"
+          )}/embed/${stream}" width="640" height="360" frameborder="0" allowfullscreen></iframe>`,
+        });
+      }
+    });
+  }
+  res.json(streams);
+});
+
+app.get("/embed/:streamKey", (req, res) => {
+  const streamKey = req.params.streamKey;
+  const streamPath = path.join(mediaRoot, "live", streamKey, "index.m3u8");
+
+  if (fs.existsSync(streamPath)) {
+    res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>${streamKey} - Live Stream</title>
+        <script src="https://cdn.jsdelivr.net/npm/hls.js@1.0.0/dist/hls.min.js"></script>
+        <style>
+          body, html { margin: 0; padding: 0; background: #000; }
+          #videoPlayer { width: 100%; height: 100vh; }
+        </style>
+      </head>
+      <body>
+        <video id="videoPlayer" controls autoplay></video>
+        <script>
+          const video = document.getElementById('videoPlayer');
+          const streamUrl = '/live/${streamKey}/index.m3u8';
+          
+          if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            video.src = streamUrl;
+          } else if (Hls.isSupported()) {
+            const hls = new Hls();
+            hls.loadSource(streamUrl);
+            hls.attachMedia(video);
+          }
+        </script>
+      </body>
+      </html>
+    `);
+  } else {
+    res.status(404).send("Stream not found");
+  }
+});
 
 app.get("/api/health", (req, res) => {
   res.json({
