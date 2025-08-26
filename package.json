@@ -4,10 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon server.js",
-    "build": "esbuild server.js --bundle --platform=node --outfile=dist/server.js",
-    "start": "node dist/server.js"
+   "prebuild": "npm install esbuild",
+  "build": "esbuild server.js --bundle --platform=node --outfile=dist/server.js",
+  "start": "node dist/server.js",
+  "dev": "nodemon server.js"
   },
   "keywords": [],
   "author": "",
@@ -17,5 +17,8 @@
     "esbuild": "^0.25.9",
     "express": "^5.1.0",
     "node-media-server": "^4.0.21"
-  }
+  },
+  "devDependencies": {
+  "esbuild": "^0.25.9"
+}
 }
