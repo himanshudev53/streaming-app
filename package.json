@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "prebuild": "npm install esbuild",
+    "prebuild": "./render-build.sh && npm install esbuild",
     "build": "esbuild server.js --bundle --platform=node --outfile=dist/server.js",
     "start": "node dist/server.js",
     "postinstall": "apt-get update && apt-get install -y ffmpeg"
