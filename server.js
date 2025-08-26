@@ -4,14 +4,20 @@ const path = require("path");
 const fs = require("fs");
 const { execSync, spawn } = require("child_process");
 const cors = require("cors");
+const ffmpegStatic = require("ffmpeg-static");
 
 console.log("🔧 Setting up environment...");
 
+// Use ffmpeg-static's path
+const ffmpegPath = ffmpegStatic;
+console.log("✅ FFmpeg found at:", ffmpegPath);
+
+// Test if the FFmpeg binary works
 try {
-  const ffmpegPath = execSync("where ffmpeg", { encoding: "utf-8" }).trim();
-  console.log("✅ FFmpeg found at:", ffmpegPath);
+  execSync(`"${ffmpegPath}" -version`, { encoding: "utf-8" });
+  console.log("✅ FFmpeg is working correctly");
 } catch (e) {
-  console.error("❌ FFmpeg not found. Install from ffmpeg.org and add to PATH");
+  console.error("❌ FFmpeg binary is not executable:", e.message);
   process.exit(1);
 }
 
@@ -46,7 +52,7 @@ const config = {
     mediaroot: mediaRoot,
     allow_origin: "*",
     webroot: publicRoot,
-    api: true
+    api: true,
   },
 };
 
@@ -82,25 +88,41 @@ nms.on("postPublish", (data) => {
   console.log(`📂 Output: ${outputPath}`);
 
   const ffmpegArgs = [
-    '-i', `rtmp://localhost:1935/live/${streamKey}`,
-    '-c:v', 'libx264',
-    '-preset', 'veryfast',
-    '-tune', 'zerolatency',
-    '-crf', '23',
-    '-c:a', 'aac',
-    '-b:a', '128k',
-    '-reconnect', '1',
-    '-reconnect_streamed', '1',
-    '-reconnect_delay_max', '2',
-    '-f', 'hls',
-    '-hls_time', '2',
-    '-hls_list_size', '0',                  // 0 = keep all segments in playlist
-    '-hls_flags', 'program_date_time',      // keep timestamp metadata, no deletion
-    '-hls_segment_filename', path.join(mediaRoot, 'live', streamKey, 'segment_%03d.ts'),
-    path.join(mediaRoot, 'live', streamKey, 'index.m3u8')
+    "-i",
+    `rtmp://localhost:1935/live/${streamKey}`,
+    "-c:v",
+    "libx264",
+    "-preset",
+    "veryfast",
+    "-tune",
+    "zerolatency",
+    "-crf",
+    "23",
+    "-c:a",
+    "aac",
+    "-b:a",
+    "128k",
+    "-reconnect",
+    "1",
+    "-reconnect_streamed",
+    "1",
+    "-reconnect_delay_max",
+    "2",
+    "-f",
+    "hls",
+    "-hls_time",
+    "2",
+    "-hls_list_size",
+    "0", // 0 = keep all segments in playlist
+    "-hls_flags",
+    "program_date_time", // keep timestamp metadata, no deletion
+    "-hls_segment_filename",
+    path.join(mediaRoot, "live", streamKey, "segment_%03d.ts"),
+    path.join(mediaRoot, "live", streamKey, "index.m3u8"),
   ];
 
-  activeStreams[data.id] = spawn("ffmpeg", ffmpegArgs);
+  // Use ffmpeg-static path instead of system FFmpeg
+  activeStreams[data.id] = spawn(ffmpegPath, ffmpegArgs);
 
   activeStreams[data.id].stdout.on("data", (data) => {
     console.log(`FFMPEG: ${data}`);
@@ -150,38 +172,43 @@ nms.on("donePlay", (req) => {
 });
 
 nms.on("prePlay", (req) => {
-  console.log(`[NMS] Request for: ${req.streamPath}`); 
+  console.log(`[NMS] Request for: ${req.streamPath}`);
 });
 
 const app = express();
 const webPort = 3000;
 
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
-  credentials: true,
-  exposedHeaders: ["Access-Control-Allow-Origin", "Access-Control-Allow-Credentials"],
-}));
-
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    exposedHeaders: [
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Credentials",
+    ],
+  })
+);
 
 app.use(express.static(publicRoot));
 
-
-app.use("/live", express.static(path.join(__dirname, "media", "live"), {
-  setHeaders: (res, path) => {
-    res.set("Access-Control-Allow-Origin", "*");
-    res.set("Cache-Control", "no-cache");
-    res.set("Access-Control-Expose-Headers", "*");
-    if (path.endsWith(".m3u8")) {
-      res.set("Content-Type", "application/vnd.apple.mpegurl");
-    }
-    if (path.endsWith(".ts")) {
-      res.set("Content-Type", "video/MP2T");
-    }
-  }
-}));
-
+app.use(
+  "/live",
+  express.static(path.join(__dirname, "media", "live"), {
+    setHeaders: (res, path) => {
+      res.set("Access-Control-Allow-Origin", "*");
+      res.set("Cache-Control", "no-cache");
+      res.set("Access-Control-Expose-Headers", "*");
+      if (path.endsWith(".m3u8")) {
+        res.set("Content-Type", "application/vnd.apple.mpegurl");
+      }
+      if (path.endsWith(".ts")) {
+        res.set("Content-Type", "video/MP2T");
+      }
+    },
+  })
+);
 
 app.get("/api/streams", (req, res) => {
   const streams = [];
@@ -195,9 +222,13 @@ app.get("/api/streams", (req, res) => {
           name: stream,
           url: `/live/${stream}/index.m3u8`,
           rtmp: `rtmp://localhost:1935/live/${stream}`,
-          embed_url: `${req.protocol}://${req.get('host')}/embed/${stream}`,
-          hls_url: `${req.protocol}://${req.get('host')}/live/${stream}/index.m3u8`,
-          iframe_embed: `<iframe src="${req.protocol}://${req.get('host')}/embed/${stream}" width="640" height="360" frameborder="0" allowfullscreen></iframe>`
+          embed_url: `${req.protocol}://${req.get("host")}/embed/${stream}`,
+          hls_url: `${req.protocol}://${req.get(
+            "host"
+          )}/live/${stream}/index.m3u8`,
+          iframe_embed: `<iframe src="${req.protocol}://${req.get(
+            "host"
+          )}/embed/${stream}" width="640" height="360" frameborder="0" allowfullscreen></iframe>`,
         });
       }
     });
@@ -208,7 +239,7 @@ app.get("/api/streams", (req, res) => {
 app.get("/embed/:streamKey", (req, res) => {
   const streamKey = req.params.streamKey;
   const streamPath = path.join(mediaRoot, "live", streamKey, "index.m3u8");
-  
+
   if (fs.existsSync(streamPath)) {
     res.send(`
       <!DOCTYPE html>
@@ -244,15 +275,15 @@ app.get("/embed/:streamKey", (req, res) => {
     res.status(404).send("Stream not found");
   }
 });
+
 app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
+  res.json({
+    status: "ok",
     timestamp: new Date().toISOString(),
     server: "Live Streaming Server",
-    version: "1.0.0"
+    version: "1.0.0",
   });
 });
-
 
 nms.run();
 app.listen(webPort, () => {
